@@ -5,6 +5,7 @@
   "description": "Property Management System - Multi-tenant property management platform",
   "workspaces": ["apps/*", "packages/*"],
   "scripts": {
+    "start": "node apps/backend/dist/main.js",
     "dev": "turbo run dev",
     "build": "npx prisma generate --schema=packages/database/prisma/schema.prisma && turbo run build",
     "test": "turbo run test",
