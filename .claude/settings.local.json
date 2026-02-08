@@ -11,7 +11,15 @@
       "Bash(winget install:*)",
       "Bash(\"C:\\\\Program Files\\\\GitHub CLI\\\\gh.exe\" auth status)",
       "Bash(\"C:\\\\Program Files\\\\GitHub CLI\\\\gh.exe\" auth login --web)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nInitial commit: PropertyOS - Multi-tenant Property Management System\n\nFeatures:\n- Next.js 15 frontend with React 18\n- NestJS backend with Prisma ORM\n- Multi-tenant architecture\n- Authentication with JWT\n- Property, tenant, and lease management\n- Maintenance request system\n- Document management\n- Payment processing with Stripe\n- Email/SMS notifications\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(\"C:\\\\Program Files\\\\GitHub CLI\\\\gh.exe\" repo create property-management --public --source=. --remote=origin --push --description \"PropertyOS - Multi-tenant Property Management System\")",
+      "Bash(\"C:\\\\Program Files\\\\GitHub CLI\\\\gh.exe\" auth refresh -s workflow)",
+      "Bash(\"C:\\\\Program Files\\\\GitHub CLI\\\\gh.exe\" auth refresh -h github.com -s workflow)",
+      "Bash(git push:*)",
+      "Bash(node -e:*)",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nFix Zeabur deployment: use pnpm and monorepo config\n\n- Added packageManager: pnpm to zeabur.json\n- Use corepack enable to ensure pnpm is available\n- Added Dockerfiles as fallback for deployment\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nUpdate Zeabur config, remove Dockerfiles\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")"
     ]
   }
 }

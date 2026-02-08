@@ -1,17 +1,5 @@
 {
-  "build": {
-    "type": "nodejs",
-    "nodeVersion": "20",
-    "packageManager": "pnpm",
-    "monorepo": {
-      "type": "turborepo",
-      "root": "../..",
-      "installCommand": "corepack enable && pnpm install --frozen-lockfile",
-      "buildCommand": "pnpm turbo run build --filter=@property-os/backend"
-    }
-  },
-  "start": {
-    "command": "node dist/main.js"
-  },
-  "ports": [3001]
+  "build_command": "cd ../.. && npm install -g pnpm && pnpm install && pnpm turbo run build --filter=@property-os/backend",
+  "start_command": "node dist/main.js",
+  "watch_paths": ["."]
 }
