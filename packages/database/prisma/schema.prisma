@@ -1,0 +1,757 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================================
+// Core Tables
+// ============================================================================
+
+model Organization {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  plan      String   @default("essential")
+  status    OrganizationStatus @default(ACTIVE)
+  settings  Json     @default("{}")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  deletedAt DateTime?
+
+  users       User[]
+  properties  Property[]
+  tenants     Tenant[]
+  vendors     Vendor[]
+  owners      Owner[]
+  documents   Document[]
+  transactions Transaction[]
+  ledgerAccounts LedgerAccount[]
+  bankAccounts BankAccount[]
+  webhooks    Webhook[]
+  auditLogs   AuditLog[]
+  notifications Notification[]
+
+  @@index([slug])
+  @@index([plan])
+  @@index([status])
+}
+
+model User {
+  id               String   @id @default(cuid())
+  tenantId         String
+  email            String
+  passwordHash     String?
+  firstName        String?
+  lastName         String?
+  role             UserRole @default(TENANT)
+  mfaEnabled       Boolean  @default(false)
+  mfaSecret        String?
+  lastLogin        DateTime?
+  emailVerified    Boolean  @default(false)
+  phone            String?
+  avatarUrl        String?
+  preferences      Json     @default("{}")
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  deletedAt        DateTime?
+
+  organization     Organization @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenantProfile    Tenant?    @relation("TenantProfile")
+  leases           Lease[]
+  payments         Payment[]
+  maintenanceRequestsAssigned MaintenanceRequest[] @relation("MaintenanceAssignee")
+  maintenanceRequests MaintenanceRequest[]
+  documents        Document[]
+  owner            Owner?
+  notifications    Notification[]
+  notificationPreferences NotificationPreferences?
+  auditLogs        AuditLog[]
+  transactionsReconciled Transaction[] @relation("TransactionReconciler")
+
+  @@unique([tenantId, email])
+  @@index([email])
+  @@index([tenantId])
+  @@index([role])
+}
+
+model Address {
+  id          String   @id @default(cuid())
+  street1     String
+  street2     String?
+  city        String
+  state       String
+  zipCode     String
+  country     String   @default("US")
+  coordinates Json?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  properties  Property[]
+  vendors     Vendor[]
+  owners      Owner[]
+
+  @@index([city])
+  @@index([state])
+}
+
+model Property {
+  id              String        @id @default(cuid())
+  tenantId        String
+  addressId       String?
+  name            String
+  type            PropertyType  @default(RESIDENTIAL)
+  yearBuilt       Int?
+  squareFeet      Int?
+  lotSize         Float?
+  parkingSpaces   Int?
+  amenities       Json          @default("[]")
+  photos          Json          @default("[]")
+  metadata        Json          @default("{}")
+  status          PropertyStatus @default(ACTIVE)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  deletedAt       DateTime?
+
+  organization    Organization  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  address         Address?      @relation(fields: [addressId], references: [id], onDelete: SetNull)
+  units           Unit[]
+  ownerProperties OwnerProperty[]
+  documents       Document[]
+  maintenanceRequests MaintenanceRequest[]
+
+  @@index([tenantId])
+  @@index([type])
+  @@index([status])
+  @@index([addressId])
+}
+
+model Unit {
+  id                String        @id @default(cuid())
+  propertyId        String
+  number            String
+  type              UnitType      @default(STUDIO)
+  floor             Int?
+  squareFeet        Int?
+  bedrooms          Int?
+  bathrooms         Float?
+  baseRent          Float
+  deposit           Float?
+  amenities         Json          @default("[]")
+  photos            Json          @default("[]")
+  status            UnitStatus    @default(VACANT)
+  metadata          Json          @default("{}")
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+  deletedAt         DateTime?
+
+  property          Property      @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  leases            Lease[]
+  maintenanceRequests MaintenanceRequest[]
+  documents         Document[]
+
+  @@unique([propertyId, number])
+  @@index([propertyId])
+  @@index([type])
+  @@index([status])
+  @@index([bedrooms])
+}
+
+model Lease {
+  id                   String       @id @default(cuid())
+  unitId               String
+  tenantId             String?
+  startDate            DateTime     @db.Date
+  endDate              DateTime     @db.Date
+  monthlyRent          Float
+  securityDeposit      Float?
+  petDeposit           Float?
+  petFee               Float?
+  lateFeePercentage    Float        @default(5.00)
+  lateFeeGraceDays     Int          @default(5)
+  status               LeaseStatus  @default(ACTIVE)
+  terms                String?      @db.Text
+  termsPdfUrl          String?
+  signedAt             DateTime?
+  autoRenew            Boolean      @default(false)
+  renewalOfferSent     Boolean      @default(false)
+  metadata             Json         @default("{}")
+  createdAt            DateTime     @default(now())
+  updatedAt            DateTime     @updatedAt
+  deletedAt            DateTime?
+
+  unit                 Unit         @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  tenant               User?        @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+  tenantProfile        Tenant?    @relation("TenantProfile")
+  payments             Payment[]
+  documents            Document[]
+
+  @@index([unitId])
+  @@index([tenantId])
+  @@index([startDate, endDate])
+  @@index([status])
+}
+
+model Tenant {
+  id                  String   @id @default(cuid())
+  userId              String   @unique
+  organizationId      String
+  leaseId             String?   @unique
+  firstName           String
+  lastName            String
+  phone               String?
+  dateOfBirth         DateTime? @db.Date
+  socialSecurityNumber String?
+  driverLicense       String?
+  emergencyContactId  String?
+  employerName        String?
+  employerPhone       String?
+  income              Float?
+  preferences         Json     @default("{}")
+  metadata            Json     @default("{}")
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+  deletedAt           DateTime?
+
+  user                User     @relation("TenantProfile", fields: [userId], references: [id], onDelete: Cascade)
+  lease               Lease?   @relation("TenantProfile", fields: [leaseId], references: [id], onDelete: SetNull)
+  payments            Payment[]
+  maintenanceRequests MaintenanceRequest[]
+  documents           Document[]
+
+  organization        Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([leaseId])
+  @@index([organizationId])
+  @@index([firstName, lastName])
+}
+
+model Payment {
+  id                   String        @id @default(cuid())
+  tenantId             String?
+  leaseId              String
+  amount               Float
+  method               PaymentMethod
+  status               PaymentStatus @default(PENDING)
+  stripePaymentIntentId String?
+  stripeCustomerId     String?
+  paymentMethodId      String?
+  dueDate              DateTime      @db.Date
+  paidAt               DateTime?
+  failedAt             DateTime?
+  failureReason        String?       @db.Text
+  lateFeeApplied       Boolean       @default(false)
+  lateFeeAmount        Float?
+  partialPayment       Boolean       @default(false)
+  parentPaymentId      String?
+  receiptUrl           String?
+  notes                String?       @db.Text
+  metadata             Json          @default("{}")
+  createdAt            DateTime      @default(now())
+  updatedAt            DateTime      @updatedAt
+  deletedAt            DateTime?
+
+  tenant               User?         @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+  lease                Lease         @relation(fields: [leaseId], references: [id], onDelete: Cascade)
+  tenantProfile        Tenant?       @relation(fields: [tenantId], references: [id], onDelete: SetNull, map: "Payment_tenantProfileId_fkey")
+  parentPayment        Payment?      @relation("PaymentRefund", fields: [parentPaymentId], references: [id], onDelete: SetNull)
+  refundPayments       Payment[]     @relation("PaymentRefund")
+
+  @@index([tenantId])
+  @@index([leaseId])
+  @@index([status])
+  @@index([dueDate])
+  @@index([stripePaymentIntentId])
+}
+
+model MaintenanceRequest {
+  id                 String                    @id @default(cuid())
+  tenantId           String?
+  unitId             String
+  category           MaintenanceCategory
+  priority           MaintenancePriority       @default(MEDIUM)
+  title              String
+  description        String                    @db.Text
+  status             MaintenanceStatus         @default(SUBMITTED)
+  assignedToId       String?
+  assignedVendorId   String?
+  photos             Json                      @default("[]")
+  estimatedCost      Float?
+  actualCost         Float?
+  resolutionNotes    String?                   @db.Text
+  resolvedAt         DateTime?
+  resolutionPhotos   Json                      @default("[]")
+  tenantSatisfied    Boolean?
+  tenantRating       Int?
+  metadata           Json                      @default("{}")
+  createdAt          DateTime                  @default(now())
+  updatedAt          DateTime                  @updatedAt
+  deletedAt          DateTime?
+
+  tenant             User?                     @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+  unit               Unit                      @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  tenantProfile      Tenant?                   @relation(fields: [tenantId], references: [id], onDelete: SetNull, map: "MaintenanceRequest_tenantProfileId_fkey")
+  assignedTo         User?                     @relation("MaintenanceAssignee", fields: [assignedToId], references: [id], onDelete: SetNull)
+  assignedVendor     Vendor?                   @relation(fields: [assignedVendorId], references: [id], onDelete: SetNull)
+  property           Property?                 @relation(fields: [unitId], references: [id], onDelete: Cascade, map: "MaintenanceRequest_propertyId_fkey")
+  documents          Document[]
+
+  @@index([tenantId])
+  @@index([unitId])
+  @@index([category])
+  @@index([status])
+  @@index([priority])
+  @@index([assignedToId])
+  @@index([assignedVendorId])
+}
+
+model Vendor {
+  id             String   @id @default(cuid())
+  tenantId       String
+  name           String
+  type           String
+  contactName    String?
+  contactEmail   String?
+  contactPhone   String?
+  addressId      String?
+  website        String?
+  rating         Float?
+  totalJobs      Int      @default(0)
+  notes          String?  @db.Text
+  active         Boolean  @default(true)
+  metadata       Json     @default("{}")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  deletedAt      DateTime?
+
+  organization   Organization @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  address        Address?     @relation(fields: [addressId], references: [id], onDelete: SetNull)
+  maintenanceRequests MaintenanceRequest[]
+
+  @@index([tenantId])
+  @@index([type])
+  @@index([active])
+  @@index([rating])
+}
+
+model Owner {
+  id                     String   @id @default(cuid())
+  tenantId               String
+  userId                 String?  @unique
+  name                   String
+  email                  String?
+  phone                  String?
+  addressId              String?
+  bankAccountId          String?
+  ownershipPercentage    Float
+  distributionFrequency  String   @default("monthly")
+  distributionDay        Int      @default(1)
+  taxId                  String?
+  active                 Boolean  @default(true)
+  metadata               Json     @default("{}")
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+  deletedAt              DateTime?
+
+  organization           Organization @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user                   User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
+  address                Address?     @relation(fields: [addressId], references: [id], onDelete: SetNull)
+  bankAccount            BankAccount? @relation
+  ownerProperties        OwnerProperty[]
+
+  @@index([tenantId])
+  @@index([userId])
+  @@index([active])
+}
+
+model OwnerProperty {
+  id                   String   @id @default(cuid())
+  ownerId              String
+  propertyId           String
+  ownershipPercentage  Float
+  acquisitionDate      DateTime? @db.Date
+  acquisitionCost      Float?
+  createdAt            DateTime @default(now())
+
+  owner                Owner    @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  property             Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  @@unique([ownerId, propertyId])
+  @@index([ownerId])
+  @@index([propertyId])
+}
+
+model Document {
+  id           String       @id @default(cuid())
+  tenantId     String
+  type         DocumentType
+  entityType   String
+  entityId     String
+  fileName     String
+  filePath     String
+  fileSize     Int
+  mimeType     String
+  description  String?      @db.Text
+  uploadedById String?
+  expiresAt    DateTime?
+  accessLevel  String       @default("private")
+  tags         Json         @default("[]")
+  metadata     Json         @default("{}")
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+  deletedAt    DateTime?
+
+  organization Organization  @relation(fields: [tenantId], references: [id], onDelete: Cascade, map: "Document_tenantId_fkey")
+  uploadedBy  User?         @relation(fields: [uploadedById], references: [id], onDelete: SetNull)
+  property    Property?     @relation(fields: [entityId], references: [id], onDelete: Cascade, map: "Document_propertyId_fkey")
+  unit        Unit?         @relation(fields: [entityId], references: [id], onDelete: Cascade, map: "Document_unitId_fkey")
+  lease       Lease?        @relation(fields: [entityId], references: [id], onDelete: Cascade, map: "Document_leaseId_fkey")
+  tenant      Tenant?       @relation(fields: [entityId], references: [id], onDelete: Cascade, map: "Document_tenantProfileId_fkey")
+  maintenance MaintenanceRequest? @relation(fields: [entityId], references: [id], onDelete: Cascade, map: "Document_maintenanceRequestId_fkey")
+
+  @@index([tenantId])
+  @@index([type])
+  @@index([entityType, entityId])
+  @@index([expiresAt])
+}
+
+model LedgerAccount {
+  id          String                @id @default(cuid())
+  tenantId    String
+  code        String
+  name        String
+  type        LedgerAccountType
+  parentId    String?
+  description String?               @db.Text
+  isSystem    Boolean               @default(false)
+  active      Boolean               @default(true)
+  createdAt   DateTime              @default(now())
+
+  organization Organization         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  parent      LedgerAccount?        @relation("LedgerHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
+  children    LedgerAccount[]       @relation("LedgerHierarchy")
+  transactions Transaction[]
+
+  @@unique([tenantId, code])
+  @@index([tenantId])
+  @@index([type])
+  @@index([parentId])
+}
+
+model Transaction {
+  id                String           @id @default(cuid())
+  tenantId          String
+  ledgerAccountId   String
+  type              TransactionType
+  amount            Float
+  currency          String           @default("USD")
+  description       String?          @db.Text
+  referenceId       String?
+  referenceType     String?
+  category          String?
+  taxAmount         Float?
+  taxInclusive      Boolean          @default(false)
+  reconciled        Boolean          @default(false)
+  reconciledAt      DateTime?
+  reconciledById    String?
+  metadata          Json             @default("{}")
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+
+  organization      Organization     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  ledgerAccount     LedgerAccount    @relation(fields: [ledgerAccountId], references: [id], onDelete: Restrict)
+  reconciledBy      User?            @relation("TransactionReconciler", fields: [reconciledById], references: [id], onDelete: SetNull)
+
+  @@index([tenantId])
+  @@index([ledgerAccountId])
+  @@index([type])
+  @@index([referenceType, referenceId])
+  @@index([createdAt])
+  @@index([reconciled])
+}
+
+model Notification {
+  id            String              @id @default(cuid())
+  userId        String
+  type          String
+  channel       NotificationChannel
+  title         String
+  body          String              @db.Text
+  data          Json                @default("{}")
+  status        String              @default("pending")
+  sentAt        DateTime?
+  readAt        DateTime?
+  failedAt      DateTime?
+  errorMessage  String?             @db.Text
+  createdAt     DateTime            @default(now())
+
+  user          User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization  Organization        @relation(fields: [userId], references: [id], onDelete: Cascade, map: "Notification_orgId_fkey")
+
+  @@index([userId])
+  @@index([type])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model NotificationPreferences {
+  id                 String   @id @default(cuid())
+  userId             String   @unique
+  emailPayments      Boolean  @default(true)
+  emailMaintenance   Boolean  @default(true)
+  emailMarketing     Boolean  @default(false)
+  smsPayments        Boolean  @default(true)
+  smsMaintenance     Boolean  @default(false)
+  smsEmergency       Boolean  @default(true)
+  pushPayments       Boolean  @default(true)
+  pushMaintenance    Boolean  @default(true)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model BankAccount {
+  id                      String   @id @default(cuid())
+  tenantId                String
+  ownerId                 String?  @unique
+  accountHolderName       String
+  accountType             String
+  bankName                String
+  lastFour                String
+  stripeBankAccountId     String?
+  routingNumber           String?
+  accountNumberEncrypted  String?
+  isPrimary               Boolean  @default(false)
+  isVerified              Boolean  @default(false)
+  metadata                Json     @default("{}")
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+  deletedAt               DateTime?
+
+  organization            Organization @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  owner                   Owner?       @relation(fields: [ownerId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId])
+  @@index([ownerId])
+}
+
+model Webhook {
+  id                String   @id @default(cuid())
+  tenantId          String
+  name              String
+  url               String
+  events            String[]
+  secret            String
+  active            Boolean  @default(true)
+  retryConfig       Json     @default("{}")
+  lastTriggeredAt   DateTime?
+  successCount      Int      @default(0)
+  failureCount      Int      @default(0)
+  metadata          Json     @default("{}")
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  organization      Organization @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  deliveries        WebhookDelivery[]
+
+  @@index([tenantId])
+  @@index([active])
+}
+
+model WebhookDelivery {
+  id             String   @id @default(cuid())
+  webhookId      String
+  eventType      String
+  payload        Json
+  responseStatus Int?
+  responseBody   String?  @db.Text
+  responseHeaders Json?
+  deliveredAt    DateTime?
+  failedAt       DateTime?
+  retryCount     Int      @default(0)
+  nextRetryAt    DateTime?
+  status         String   @default("pending")
+  createdAt      DateTime @default(now())
+
+  webhook        Webhook  @relation(fields: [webhookId], references: [id], onDelete: Cascade)
+
+  @@index([webhookId])
+  @@index([status])
+  @@index([nextRetryAt])
+}
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  tenantId    String
+  userId      String?
+  action      String
+  entityType  String
+  entityId    String
+  changes     Json?
+  ipAddress   String?
+  userAgent   String?  @db.Text
+  createdAt   DateTime @default(now())
+
+  organization Organization @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user        User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId])
+  @@index([userId])
+  @@index([entityType, entityId])
+  @@index([action])
+  @@index([createdAt])
+}
+
+// ============================================================================
+// Enums
+// ============================================================================
+
+enum OrganizationStatus {
+  ACTIVE
+  SUSPENDED
+  DELETED
+}
+
+enum UserRole {
+  ADMIN        // Full access to all tenant resources
+  MANAGER      // Property manager with operational access
+  OWNER        // Property owner with financial access
+  TENANT       // Tenant with self-service access
+  VENDOR       // Vendor with limited access
+  ACCOUNTANT   // Accountant with financial reporting access
+}
+
+enum PropertyType {
+  RESIDENTIAL  // Residential property
+  COMMERCIAL   // Commercial property
+  MIXED_USE    // Mixed-use property
+  INDUSTRIAL   // Industrial property
+  LAND         // Vacant land
+}
+
+enum PropertyStatus {
+  ACTIVE
+  INACTIVE
+  UNDER_MAINTENANCE
+}
+
+enum UnitType {
+  STUDIO             // Studio apartment
+  ONE_BEDROOM        // 1 bedroom
+  TWO_BEDROOM        // 2 bedrooms
+  THREE_BEDROOM      // 3 bedrooms
+  FOUR_PLUS_BEDROOM  // 4+ bedrooms
+  TOWNHOUSE          // Townhouse
+  DUPLEX             // Duplex unit
+  COMMERCIAL_SPACE   // Commercial space
+}
+
+enum UnitStatus {
+  VACANT
+  OCCUPIED
+  UNDER_MAINTENANCE
+  RESERVED
+}
+
+enum LeaseStatus {
+  DRAFT          // Draft lease
+  PENDING        // Pending signature
+  ACTIVE         // Active lease
+  EXPIRING_SOON  // Expiring within 30 days
+  EXPIRED        // Expired lease
+  TERMINATED     // Early termination
+  RENEWED        // Renewed lease
+}
+
+enum PaymentMethod {
+  ACH            // ACH bank transfer
+  CREDIT_CARD    // Credit card
+  DEBIT_CARD     // Debit card
+  CHECK          // Physical check
+  CASH           // Cash payment
+  BANK_TRANSFER  // Wire transfer
+}
+
+enum PaymentStatus {
+  PENDING        // Payment initiated, not processed
+  PROCESSING     // Payment being processed
+  COMPLETED      // Payment successful
+  FAILED         // Payment failed
+  REFUNDED       // Payment refunded
+  PARTIAL_REFUND // Partial refund issued
+  CANCELLED      // Payment cancelled
+}
+
+enum MaintenanceCategory {
+  PLUMBING       // Plumbing issues
+  ELECTRICAL     // Electrical issues
+  HVAC           // Heating, ventilation, AC
+  APPLIANCES     // Appliance repairs
+  STRUCTURAL     // Structural issues
+  PEST_CONTROL   // Pest control
+  LANDSCAPING    // Landscaping issues
+  SECURITY       // Security concerns
+  INTERNET       // Internet/cable issues
+  OTHER          // Other issues
+}
+
+enum MaintenancePriority {
+  LOW            // Low priority
+  MEDIUM         // Medium priority
+  HIGH           // High priority
+  EMERGENCY      // Emergency/urgent
+}
+
+enum MaintenanceStatus {
+  SUBMITTED      // Request submitted
+  TRIAGED        // Request categorized
+  ASSIGNED       // Assigned to vendor
+  IN_PROGRESS    // Work in progress
+  AWAITING_PARTS // Waiting for parts
+  COMPLETED      // Work completed
+  CANCELLED      // Request cancelled
+  REOPENED       // Request reopened
+}
+
+enum NotificationChannel {
+  EMAIL          // Email notification
+  SMS            // SMS notification
+  PUSH           // Push notification
+  IN_APP         // In-app notification
+}
+
+enum DocumentType {
+  LEASE          // Lease agreement
+  ADDENDUM       // Lease addendum
+  NOTICE         // Official notice
+  INVOICE        // Invoice
+  RECEIPT        // Receipt
+  INSURANCE      // Insurance document
+  ID_VERIFICATION // ID verification
+  APPLICATION    // Rental application
+  CONTRACT       // Service contract
+  REPORT         // Inspection/maintenance report
+  OTHER          // Other document
+}
+
+enum TransactionType {
+  DEBIT          // Debit transaction (expense)
+  CREDIT         // Credit transaction (income)
+  ADJUSTMENT     // Adjustment transaction
+}
+
+enum LedgerAccountType {
+  ASSET          // Asset account
+  LIABILITY      // Liability account
+  EQUITY         // Equity account
+  INCOME         // Income/revenue account
+  EXPENSE        // Expense account
+}

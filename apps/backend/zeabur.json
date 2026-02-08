@@ -1,0 +1,16 @@
+{
+  "build": {
+    "type": "nodejs",
+    "nodeVersion": "20",
+    "monorepo": {
+      "type": "turborepo",
+      "root": "../..",
+      "installCommand": "pnpm install",
+      "buildCommand": "pnpm turbo run build --filter=@property-os/backend"
+    }
+  },
+  "start": {
+    "command": "node dist/main.js"
+  },
+  "ports": [3001]
+}

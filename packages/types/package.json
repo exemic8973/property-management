@@ -1,0 +1,1 @@
+{"name": "@property-os/types", "version": "0.1.0", "private": true, "description": "PropertyOS Types - Shared TypeScript Types", "main": "./src/index.ts", "types": "./src/index.ts", "scripts": {"type-check": "tsc --noEmit", "clean": "rm -rf node_modules dist"}, "devDependencies": {"typescript": "^5.3.3"}}

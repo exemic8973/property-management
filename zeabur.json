@@ -1,0 +1,149 @@
+{
+  "$schema": "https://schema.zeabur.app/template.json",
+  "name": "PropertyOS",
+  "description": "Multi-tenant property management platform",
+  "services": [
+    {
+      "name": "postgres",
+      "template": "POSTGRESQL",
+      "spec": {
+        "database": "property_os"
+      }
+    },
+    {
+      "name": "redis",
+      "template": "REDIS"
+    },
+    {
+      "name": "backend",
+      "template": "GIT",
+      "source": {
+        "type": "git"
+      },
+      "build": {
+        "type": "nodejs",
+        "nodeVersion": "20",
+        "cacheConfig": {
+          "cacheDir": "node_modules/.pnpm"
+        },
+        "installCommand": "pnpm install",
+        "buildCommand": "pnpm turbo run build --filter=@property-os/backend",
+        "startCommand": "cd apps/backend && pnpm start:prod"
+      },
+      "env": {
+        "NODE_ENV": {
+          "default": "production"
+        },
+        "DATABASE_URL": {
+          "valueFrom": {
+            "type": "SERVICE_LINK",
+            "serviceName": "postgres"
+          }
+        },
+        "REDIS_URL": {
+          "valueFrom": {
+            "type": "SERVICE_LINK",
+            "serviceName": "redis"
+          }
+        },
+        "BACKEND_PORT": {
+          "default": "3001"
+        },
+        "JWT_PRIVATE_KEY": {
+          "expose": true,
+          "required": true
+        },
+        "JWT_PUBLIC_KEY": {
+          "expose": true,
+          "required": true
+        },
+        "SENDGRID_API_KEY": {
+          "expose": true
+        },
+        "SENDGRID_FROM_EMAIL": {
+          "default": "noreply@propertyos.com"
+        },
+        "TWILIO_ACCOUNT_SID": {
+          "expose": true
+        },
+        "TWILIO_AUTH_TOKEN": {
+          "expose": true
+        },
+        "TWILIO_PHONE_NUMBER": {
+          "expose": true
+        }
+      },
+      "ports": [
+        {
+          "port": 3001,
+          "type": "http",
+          "expose": true
+        }
+      ]
+    },
+    {
+      "name": "frontend",
+      "template": "GIT",
+      "source": {
+        "type": "git"
+      },
+      "domainKey": "frontend",
+      "build": {
+        "type": "nodejs",
+        "nodeVersion": "20",
+        "cacheConfig": {
+          "cacheDir": "node_modules/.pnpm"
+        },
+        "installCommand": "pnpm install",
+        "buildCommand": "pnpm turbo run build --filter=@property-os/frontend",
+        "startCommand": "cd apps/frontend && pnpm start"
+      },
+      "env": {
+        "NODE_ENV": {
+          "default": "production"
+        },
+        "NEXT_PUBLIC_API_URL": {
+          "valueFrom": {
+            "type": "SERVICE_LINK",
+            "serviceName": "backend"
+          }
+        },
+        "NEXT_PUBLIC_APP_URL": {
+          "valueFrom": {
+            "type": "DOMAIN",
+            "serviceName": "frontend"
+          }
+        },
+        "NEXTAUTH_URL": {
+          "valueFrom": {
+            "type": "DOMAIN",
+            "serviceName": "frontend"
+          }
+        },
+        "NEXTAUTH_SECRET": {
+          "expose": true,
+          "required": true
+        },
+        "GOOGLE_CLIENT_ID": {
+          "expose": true
+        },
+        "GOOGLE_CLIENT_SECRET": {
+          "expose": true
+        },
+        "GITHUB_CLIENT_ID": {
+          "expose": true
+        },
+        "GITHUB_CLIENT_SECRET": {
+          "expose": true
+        }
+      },
+      "ports": [
+        {
+          "port": 3000,
+          "type": "http",
+          "expose": true
+        }
+      ]
+    }
+  ]
+}

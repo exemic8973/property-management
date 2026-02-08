@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pnpm install:*)",
+      "Bash(pnpm run build:*)",
+      "Bash(timeout:*)",
+      "Bash(npx zeabur:*)",
+      "Bash(git init:*)",
+      "Bash(gh auth status:*)",
+      "Bash(where:*)",
+      "Bash(winget install:*)",
+      "Bash(\"C:\\\\Program Files\\\\GitHub CLI\\\\gh.exe\" auth status)",
+      "Bash(\"C:\\\\Program Files\\\\GitHub CLI\\\\gh.exe\" auth login --web)",
+      "Bash(git add:*)"
+    ]
+  }
+}
