@@ -1,5 +1,5 @@
 {
-  "build_command": "cd ../.. && npm install -g pnpm && pnpm install && pnpm turbo run build --filter=@property-os/backend",
-  "start_command": "node dist/main.js",
+  "build_command": "npm install -g pnpm && pnpm install && cd packages/database && npx prisma generate && cd ../.. && pnpm turbo run build --filter=@property-os/backend",
+  "start_command": "cd apps/backend && node dist/main.js",
   "watch_paths": ["."]
 }

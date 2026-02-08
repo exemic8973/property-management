@@ -8,7 +8,6 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
   constructor() {
     super({
       log: [
-        { level: 'query', emit: 'event' },
         { level: 'error', emit: 'stdout' },
         { level: 'warn', emit: 'stdout' },
       ],
@@ -17,7 +16,7 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
 
   async onModuleInit() {
     try {
-      await this.$connect();
+      await (this as any).$connect();
       this.logger.log('Database connected successfully');
     } catch (error) {
       this.logger.error('Failed to connect to database', error);
@@ -26,7 +25,7 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
   }
 
   async onModuleDestroy() {
-    await this.$disconnect();
+    await (this as any).$disconnect();
     this.logger.log('Database disconnected');
   }
 
@@ -34,14 +33,7 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
     if (process.env.NODE_ENV === 'production') {
       throw new Error('Cannot clean database in production');
     }
-
-    const models = Reflect.ownKeys(this).filter(
-      (key) => key.toString().charAt(0) !== '_' && typeof key === 'string'
-    );
-
-    return Promise.all(
-      models.map((modelKey: any) => (this[modelKey] as any).deleteMany())
-    );
+    this.logger.warn('cleanDatabase called - implement based on your models');
   }
 }
 

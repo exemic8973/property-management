@@ -1,6 +1,6 @@
 {
-  "build_command": "cd ../.. && npm install -g pnpm && pnpm install && pnpm turbo run build --filter=@property-os/frontend",
-  "start_command": "node server.js",
+  "build_command": "npm install -g pnpm && pnpm install && cd packages/database && npx prisma generate && cd ../.. && pnpm turbo run build --filter=@property-os/frontend",
+  "start_command": "cd apps/frontend/.next/standalone && node apps/frontend/server.js",
   "output_dir": ".next",
   "watch_paths": ["."]
 }
