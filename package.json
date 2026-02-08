@@ -6,18 +6,19 @@
   "workspaces": ["apps/*", "packages/*"],
   "scripts": {
     "dev": "turbo run dev",
-    "build": "pnpm run db:generate && turbo run build",
+    "build": "npx prisma generate --schema=packages/database/prisma/schema.prisma && turbo run build",
     "test": "turbo run test",
     "lint": "turbo run lint",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\"",
     "clean": "turbo run clean && rm -rf node_modules",
-    "db:generate": "cd packages/database && npx prisma generate",
-    "db:push": "cd packages/database && pnpm prisma db push",
-    "db:migrate": "cd packages/database && pnpm prisma migrate dev",
-    "db:studio": "cd packages/database && pnpm prisma studio"
+    "db:generate": "npx prisma generate --schema=packages/database/prisma/schema.prisma",
+    "db:push": "npx prisma db push --schema=packages/database/prisma/schema.prisma",
+    "db:migrate": "npx prisma migrate dev --schema=packages/database/prisma/schema.prisma",
+    "db:studio": "npx prisma studio --schema=packages/database/prisma/schema.prisma"
   },
   "devDependencies": {
     "prettier": "^3.2.5",
+    "prisma": "^5.8.0",
     "turbo": "^2.0.4",
     "typescript": "^5.3.3"
   },
