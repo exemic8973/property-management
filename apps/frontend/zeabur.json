@@ -2,10 +2,11 @@
   "build": {
     "type": "nodejs",
     "nodeVersion": "20",
+    "packageManager": "pnpm",
     "monorepo": {
       "type": "turborepo",
       "root": "../..",
-      "installCommand": "pnpm install",
+      "installCommand": "corepack enable && pnpm install --frozen-lockfile",
       "buildCommand": "pnpm turbo run build --filter=@property-os/frontend"
     }
   },
