@@ -6,12 +6,12 @@
   "workspaces": ["apps/*", "packages/*"],
   "scripts": {
     "dev": "turbo run dev",
-    "build": "turbo run build",
+    "build": "pnpm run db:generate && turbo run build",
     "test": "turbo run test",
     "lint": "turbo run lint",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\"",
     "clean": "turbo run clean && rm -rf node_modules",
-    "db:generate": "cd packages/database && pnpm prisma generate",
+    "db:generate": "cd packages/database && npx prisma generate",
     "db:push": "cd packages/database && pnpm prisma db push",
     "db:migrate": "cd packages/database && pnpm prisma migrate dev",
     "db:studio": "cd packages/database && pnpm prisma studio"
