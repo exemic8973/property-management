@@ -5,7 +5,6 @@
   "description": "Property Management System - Multi-tenant property management platform",
   "workspaces": ["apps/*", "packages/*"],
   "scripts": {
-    "postinstall": "cd packages/database && npx prisma generate",
     "dev": "turbo run dev",
     "build": "turbo run build",
     "test": "turbo run test",
