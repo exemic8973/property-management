@@ -1,1 +1,30 @@
-{"name": "property-os", "version": "0.1.0", "private": true, "description": "Property Management System - Multi-tenant property management platform", "workspaces": ["apps/*", "packages/*"], "scripts": {"dev": "turbo run dev", "build": "turbo run build", "test": "turbo run test", "lint": "turbo run lint", "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\"", "clean": "turbo run clean && rm -rf node_modules", "db:generate": "cd packages/database && pnpm prisma generate", "db:push": "cd packages/database && pnpm prisma db push", "db:migrate": "cd packages/database && pnpm prisma migrate dev", "db:studio": "cd packages/database && pnpm prisma studio"}, "devDependencies": {"prettier": "^3.2.5", "turbo": "^2.0.4", "typescript": "^5.3.3"}, "engines": {"node": ">=18.0.0", "npm": ">=9.0.0"}, "packageManager": "pnpm@10.19.0"}
+{
+  "name": "property-os",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Property Management System - Multi-tenant property management platform",
+  "workspaces": ["apps/*", "packages/*"],
+  "scripts": {
+    "postinstall": "cd packages/database && npx prisma generate",
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "test": "turbo run test",
+    "lint": "turbo run lint",
+    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\"",
+    "clean": "turbo run clean && rm -rf node_modules",
+    "db:generate": "cd packages/database && pnpm prisma generate",
+    "db:push": "cd packages/database && pnpm prisma db push",
+    "db:migrate": "cd packages/database && pnpm prisma migrate dev",
+    "db:studio": "cd packages/database && pnpm prisma studio"
+  },
+  "devDependencies": {
+    "prettier": "^3.2.5",
+    "turbo": "^2.0.4",
+    "typescript": "^5.3.3"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
+  },
+  "packageManager": "pnpm@10.19.0"
+}
