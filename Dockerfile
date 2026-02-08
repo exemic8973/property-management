@@ -4,12 +4,24 @@ RUN apt-get update && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
 
 FROM base AS builder
 WORKDIR /app
-COPY . .
+
+# Cache bust: v2
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
+COPY apps/backend/package.json ./apps/backend/
+COPY packages/database/package.json ./packages/database/
+COPY packages/types/package.json ./packages/types/
+COPY packages/ui/package.json ./packages/ui/
+COPY packages/config/package.json ./packages/config/
+COPY apps/frontend/package.json ./apps/frontend/
+
 RUN pnpm install --no-frozen-lockfile
+
+COPY . .
 RUN npx prisma generate --schema=packages/database/prisma/schema.prisma
 RUN pnpm turbo run build
 
-FROM base AS runner
+FROM node:20-slim AS runner
+RUN apt-get update && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/apps/backend/dist ./apps/backend/dist
