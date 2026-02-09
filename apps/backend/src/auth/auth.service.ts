@@ -1,8 +1,7 @@
 import { Injectable, UnauthorizedException, ConflictException, BadRequestException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
-// @ts-ignore
-import bcrypt from 'bcrypt';
+import * as bcrypt from 'bcryptjs';
 import { PrismaService } from '@property-os/database';
 import { RegisterDto, LoginDto, RefreshTokenDto } from './dto';
 import { JwtPayload } from './jwt.strategy';

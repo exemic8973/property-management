@@ -33,7 +33,6 @@
       "@prisma/client",
       "@prisma/engines",
       "prisma",
-      "bcrypt",
       "sharp"
     ]
   }
