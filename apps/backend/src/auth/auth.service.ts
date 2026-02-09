@@ -42,6 +42,12 @@ export interface LoginResponse {
     role: UserRole;
     tenant_id: string;
   };
+  organization: {
+    id: string;
+    name: string;
+    slug: string;
+    plan: string;
+  };
   accessToken: string;
   refreshToken: string;
 }
