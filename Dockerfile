@@ -23,6 +23,7 @@ ENV NEXT_PUBLIC_API_URL=""
 RUN pnpm turbo run build
 
 # Remove dev dependencies to shrink node_modules significantly
+ENV CI=true
 RUN pnpm prune --prod --no-optional
 
 FROM node:20-slim AS runner
