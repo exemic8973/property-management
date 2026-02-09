@@ -41,7 +41,7 @@ COPY --from=builder /app/apps/frontend/.next/standalone ./frontend-standalone
 COPY --from=builder /app/apps/frontend/.next/static ./frontend-standalone/apps/frontend/.next/static
 
 # Inline start script to avoid CRLF issues
-RUN printf '#!/bin/sh\nif [ "$SERVICE_TYPE" = "frontend" ]; then\n  echo "Starting frontend service..."\n  cd /app/frontend-standalone && node apps/frontend/server.js\nelse\n  echo "Starting backend service..."\n  node /app/apps/backend/dist/main.js\nfi\n' > /app/start.sh && chmod +x /app/start.sh
+RUN printf '#!/bin/sh\nif [ "$SERVICE_TYPE" = "frontend" ]; then\n  echo "Starting frontend service..."\n  cd /app/frontend-standalone\n  HOSTNAME=0.0.0.0 PORT=${PORT:-3000} node apps/frontend/server.js\nelse\n  echo "Starting backend service..."\n  node /app/apps/backend/dist/main.js\nfi\n' > /app/start.sh && chmod +x /app/start.sh
 
 ENV NODE_ENV=production
 EXPOSE 3000 3001
