@@ -271,13 +271,11 @@ export class AuthService {
     role: UserRole,
   ): Promise<Tokens> {
     const jti = randomBytes(16).toString('hex');
-    const payload: JwtPayload = {
+    const payload = {
       sub: userId,
       tenant_id: tenantId,
       role,
       email,
-      iat: Math.floor(Date.now() / 1000),
-      exp: Math.floor(Date.now() / 1000) + (15 * 60), // 15 minutes
       jti,
     };
 
