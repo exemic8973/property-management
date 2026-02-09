@@ -22,11 +22,14 @@ RUN npx prisma generate --schema=packages/database/prisma/schema.prisma
 ENV NEXT_PUBLIC_API_URL=""
 RUN pnpm turbo run build
 
+# Remove dev dependencies to shrink node_modules significantly
+RUN pnpm prune --prod --no-optional
+
 FROM node:20-slim AS runner
 RUN apt-get update && apt-get install -y openssl nginx && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 
-# Copy everything needed for both services
+# Copy production node_modules (dev deps already pruned)
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/package.json ./package.json
 
