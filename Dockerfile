@@ -26,7 +26,10 @@ RUN pnpm turbo run build
 RUN CI=true pnpm prune --prod --no-optional
 
 FROM node:20-slim AS runner
-RUN apt-get update && apt-get install -y openssl nginx && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y openssl nginx curl && rm -rf /var/lib/apt/lists/*
+
+# Create non-root user
+RUN groupadd -r appuser && useradd -r -g appuser -d /app appuser
 WORKDIR /app
 
 # Copy production node_modules (dev deps already pruned)
@@ -53,6 +56,14 @@ RUN ln -sf /dev/stdout /var/log/nginx/access.log && \
 # Nginx config: route /api to backend, everything else to frontend
 RUN printf 'server {\n\
     listen 8080;\n\
+    client_max_body_size 10m;\n\
+\n\
+    # Security headers\n\
+    add_header X-Frame-Options "SAMEORIGIN" always;\n\
+    add_header X-Content-Type-Options "nosniff" always;\n\
+    add_header X-XSS-Protection "1; mode=block" always;\n\
+    add_header Referrer-Policy "strict-origin-when-cross-origin" always;\n\
+\n\
     location /api {\n\
         proxy_pass http://127.0.0.1:3001;\n\
         proxy_http_version 1.1;\n\
@@ -62,6 +73,8 @@ RUN printf 'server {\n\
         proxy_set_header X-Real-IP $remote_addr;\n\
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;\n\
         proxy_set_header X-Forwarded-Proto $scheme;\n\
+        proxy_connect_timeout 30s;\n\
+        proxy_read_timeout 60s;\n\
     }\n\
     location / {\n\
         proxy_pass http://127.0.0.1:3000;\n\
@@ -75,7 +88,7 @@ RUN printf 'server {\n\
     }\n\
 }\n' > /etc/nginx/sites-available/default
 
-# Start script: migrate DB, then run backend + frontend + nginx
+# Start script: migrate DB, wait for services, then start nginx
 RUN printf '#!/bin/sh\n\
 echo "[startup] PropertyOS container starting..."\n\
 echo "[startup] Running database migrations..."\n\
@@ -88,9 +101,28 @@ echo "[startup] Starting frontend on port 3000..."\n\
 cd /app/frontend-standalone && HOSTNAME=0.0.0.0 PORT=3000 node apps/frontend/server.js 2>&1 &\n\
 FRONTEND_PID=$!\n\
 echo "[startup] Frontend PID: $FRONTEND_PID"\n\
+echo "[startup] Waiting for services to be ready..."\n\
+for i in 1 2 3 4 5 6 7 8 9 10; do\n\
+  if curl -sf http://127.0.0.1:3001/api/health > /dev/null 2>&1; then\n\
+    echo "[startup] Backend is ready"\n\
+    break\n\
+  fi\n\
+  echo "[startup] Waiting for backend... ($i/10)"\n\
+  sleep 2\n\
+done\n\
 echo "[startup] Starting nginx on port 8080..."\n\
 nginx -g "daemon off;" 2>&1\n' > /app/start.sh && chmod +x /app/start.sh
 
+# Allow nginx to write pid and logs
+RUN chown -R appuser:appuser /app && \
+    chown -R appuser:appuser /var/log/nginx && \
+    chown -R appuser:appuser /var/lib/nginx && \
+    touch /run/nginx.pid && chown appuser:appuser /run/nginx.pid
+
+USER appuser
+
 ENV NODE_ENV=production
 EXPOSE 8080
+HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
+  CMD curl -sf http://127.0.0.1:8080/api/health || exit 1
 CMD ["/app/start.sh"]

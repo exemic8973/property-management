@@ -18,10 +18,4 @@ export class AppController {
   getHealth() {
     return this.appService.getHealth();
   }
-
-  @Get('diagnostics')
-  @ApiOperation({ summary: 'System diagnostics' })
-  getDiagnostics() {
-    return this.appService.getDiagnostics();
-  }
 }

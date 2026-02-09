@@ -46,9 +46,16 @@ export class NotificationsService {
     dto: CreateNotificationDto,
   ): Promise<any> {
     try {
+      // Look up user's organization for the required FK
+      const user = await this.prisma.user.findUnique({ where: { id: userId }, select: { tenantId: true } });
+      if (!user) {
+        throw new BadRequestException('User not found');
+      }
+
       const notification = await this.prisma.notification.create({
         data: {
           userId,
+          organizationId: user.tenantId,
           type: dto.type,
           channel: dto.channel || NotificationChannel.IN_APP,
           title: dto.title,
@@ -73,11 +80,19 @@ export class NotificationsService {
     userIds: string[],
     dto: Omit<CreateNotificationDto, 'userIds'>,
   ): Promise<any[]> {
+    // Look up organizations for all users
+    const users = await this.prisma.user.findMany({
+      where: { id: { in: userIds } },
+      select: { id: true, tenantId: true },
+    });
+    const userOrgMap = new Map(users.map(u => [u.id, u.tenantId]));
+
     const notifications = await Promise.all(
       userIds.map(userId =>
         this.prisma.notification.create({
           data: {
             userId,
+            organizationId: userOrgMap.get(userId) || '',
             type: dto.type,
             channel: dto.channel || NotificationChannel.IN_APP,
             title: dto.title,

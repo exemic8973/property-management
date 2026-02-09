@@ -280,6 +280,14 @@ export class PaymentsService {
         const charges = await this.stripeService.getChargesForPaymentIntent(paymentIntentId);
         const receiptUrl = charges.data[0]?.receipt_url || null;
 
+        // Check for existing ledger entries before transaction
+        const existingTransactions = await this.prisma.transaction.findMany({
+          where: {
+            referenceId: payment.id,
+            referenceType: 'PAYMENT',
+          },
+        });
+
         await this.prisma.payment.update({
           where: { id: payment.id },
           data: {
@@ -290,13 +298,6 @@ export class PaymentsService {
         });
 
         // Create ledger entries if not already created
-        const existingTransactions = await this.prisma.transaction.findMany({
-          where: {
-            referenceId: payment.id,
-            referenceType: 'PAYMENT',
-          },
-        });
-
         if (existingTransactions.length === 0) {
           const ledgerAccounts = await this.ledgerService.getOrCreateDefaultLedgerAccounts(tenantId);
           const rentAccount = ledgerAccounts.find((a) => a.code === '4000');
@@ -307,10 +308,10 @@ export class PaymentsService {
             await this.ledgerService.createPaymentLedgerEntries(
               tenantId,
               payment.id,
-              payment.amount,
+              Number(payment.amount),
               rentAccount.id,
               cashAccount.id,
-              payment.lateFeeAmount || 0,
+              Number(payment.lateFeeAmount || 0),
               lateFeeAccount?.id,
             );
           }
@@ -339,8 +340,8 @@ export class PaymentsService {
         paymentId: payment.id,
         status: stripePaymentIntent.status,
         stripePaymentIntentId: paymentIntentId,
-        amount: payment.amount + (payment.lateFeeAmount || 0),
-        lateFeeAmount: payment.lateFeeAmount || undefined,
+        amount: Number(payment.amount) + Number(payment.lateFeeAmount || 0),
+        lateFeeAmount: payment.lateFeeAmount ? Number(payment.lateFeeAmount) : undefined,
       };
     } catch (error) {
       if (error instanceof NotFoundException) {
@@ -386,13 +387,14 @@ export class PaymentsService {
       }
 
       // Calculate refund amount
-      const refundAmount = refundData.amount || payment.amount;
-      if (refundAmount > payment.amount) {
+      const paymentAmount = Number(payment.amount);
+      const refundAmount = refundData.amount || paymentAmount;
+      if (refundAmount > paymentAmount) {
         throw new BadRequestException('Refund amount cannot exceed original payment amount');
       }
 
       // Check if this is a partial refund
-      const isPartialRefund = refundAmount < payment.amount;
+      const isPartialRefund = refundAmount < paymentAmount;
 
       // Create Stripe refund
       const stripeRefund = await this.stripeService.createRefund({
@@ -407,43 +409,48 @@ export class PaymentsService {
         },
       });
 
-      // Update payment status
+      // Wrap all DB mutations in a transaction for atomicity
       const newStatus = isPartialRefund ? 'PARTIAL_REFUND' : 'REFUNDED';
-      await this.prisma.payment.update({
-        where: { id: paymentId },
-        data: {
-          status: newStatus as any,
-          metadata: {
-            ...(payment.metadata as object || {}),
-            refundId: stripeRefund.id,
-            refundAmount,
-            refundReason: refundData.reason,
-            refundedAt: new Date().toISOString(),
+      const refundPayment = await this.prisma.$transaction(async (tx) => {
+        // Update original payment status
+        await tx.payment.update({
+          where: { id: paymentId },
+          data: {
+            status: newStatus as any,
+            metadata: {
+              ...(payment.metadata as object || {}),
+              refundId: stripeRefund.id,
+              refundAmount,
+              refundReason: refundData.reason,
+              refundedAt: new Date().toISOString(),
+            },
           },
-        },
+        });
+
+        // Create refund payment record
+        const refund = await tx.payment.create({
+          data: {
+            tenantId: payment.tenantId,
+            leaseId: payment.leaseId,
+            amount: refundAmount,
+            method: payment.method,
+            status: 'COMPLETED',
+            parentPaymentId: paymentId,
+            dueDate: new Date(),
+            paidAt: new Date(),
+            notes: refundData.reason || `Refund of payment ${paymentId}`,
+            metadata: {
+              stripeRefundId: stripeRefund.id,
+              originalPaymentId: paymentId,
+              reference: refundData.reference,
+            },
+          },
+        });
+
+        return refund;
       });
 
-      // Create refund payment record
-      const refundPayment = await this.prisma.payment.create({
-        data: {
-          tenantId: payment.tenantId,
-          leaseId: payment.leaseId,
-          amount: refundAmount,
-          method: payment.method,
-          status: 'COMPLETED',
-          parentPaymentId: paymentId,
-          dueDate: new Date(),
-          paidAt: new Date(),
-          notes: refundData.reason || `Refund of payment ${paymentId}`,
-          metadata: {
-            stripeRefundId: stripeRefund.id,
-            originalPaymentId: paymentId,
-            reference: refundData.reference,
-          },
-        },
-      });
-
-      // Create ledger entries for refund
+      // Create ledger entries for refund (outside transaction — ledger service manages its own)
       const ledgerAccounts = await this.ledgerService.getOrCreateDefaultLedgerAccounts(tenantId);
       const rentAccount = ledgerAccounts.find((a) => a.code === '4000');
       const cashAccount = ledgerAccounts.find((a) => a.code === '1000');
@@ -503,7 +510,9 @@ export class PaymentsService {
 
       // Calculate late fee: (days late - grace days) * (monthly rent * late fee percentage / 30)
       const billableDaysLate = daysLate - lease.lateFeeGraceDays;
-      const dailyLateFeeRate = (lease.monthlyRent * (lease.lateFeePercentage / 100)) / 30;
+      const monthlyRent = Number(lease.monthlyRent);
+      const lateFeePercentage = Number(lease.lateFeePercentage);
+      const dailyLateFeeRate = (monthlyRent * (lateFeePercentage / 100)) / 30;
       const lateFeeAmount = Math.round(billableDaysLate * dailyLateFeeRate * 100) / 100;
 
       this.logger.log(`Late fee calculated for lease ${leaseId}: $${lateFeeAmount} (${daysLate} days late)`);
@@ -686,10 +695,10 @@ export class PaymentsService {
               await this.ledgerService.createPaymentLedgerEntries(
                 tenantId,
                 payment.id,
-                payment.amount,
+                Number(payment.amount),
                 rentAccount.id,
                 cashAccount.id,
-                payment.lateFeeAmount || 0,
+                Number(payment.lateFeeAmount || 0),
                 lateFeeAccount?.id,
               );
             }

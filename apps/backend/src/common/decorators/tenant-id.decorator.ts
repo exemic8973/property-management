@@ -1,19 +1,18 @@
-import { createParamDecorator, ExecutionContext } from '@nestjs/common';
+import { createParamDecorator, ExecutionContext, UnauthorizedException } from '@nestjs/common';
 
 /**
- * Decorator to extract tenant_id from request headers or user claims
- * For multi-tenant data isolation
+ * Decorator to extract tenant_id from the authenticated user's JWT claims.
+ * Always uses the JWT tenant_id to prevent cross-tenant access via header spoofing.
  */
 export const TenantId = createParamDecorator(
   (data: unknown, ctx: ExecutionContext): string => {
     const request = ctx.switchToHttp().getRequest();
-    
-    // Try to get tenant_id from header first (for service-to-service calls)
-    if (request.headers['x-tenant-id']) {
-      return request.headers['x-tenant-id'];
+
+    const tenantId = request.user?.tenant_id;
+    if (!tenantId) {
+      throw new UnauthorizedException('Missing tenant context');
     }
-    
-    // Fall back to user's tenantId from JWT payload
-    return request.user?.tenantId;
+
+    return tenantId;
   },
 );

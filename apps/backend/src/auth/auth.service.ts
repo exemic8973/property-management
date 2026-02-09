@@ -235,14 +235,8 @@ export class AuthService {
     const resetToken = randomBytes(32).toString('hex');
     const resetTokenExpiry = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
 
-    // Store reset token (you would typically store this in Redis or a separate table)
-    // For now, we'll just simulate this
-    // In production, you would save this to a password_reset_tokens table
-
-    // Send email with reset link
-    // This would integrate with your email service
-    console.log(`Password reset token for ${email}: ${resetToken}`);
-    console.log(`Reset link: ${this.configService.get<string>('FRONTEND_URL')}/reset-password?token=${resetToken}`);
+    // TODO: Store reset token in database and send email via EmailService
+    // For now, password reset is not yet functional
   }
 
   async resetPassword(token: string, newPassword: string): Promise<void> {

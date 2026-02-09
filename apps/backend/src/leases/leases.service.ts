@@ -623,7 +623,7 @@ export class LeasesService {
         startDate: oldEndDate,
         endDate: newEndDate,
         monthlyRent: renewalData.rentIncrease
-          ? existingLease.monthlyRent * (1 + renewalData.rentIncrease / 100)
+          ? Number(existingLease.monthlyRent) * (1 + renewalData.rentIncrease / 100)
           : existingLease.monthlyRent,
         securityDeposit: existingLease.securityDeposit,
         petDeposit: existingLease.petDeposit,
