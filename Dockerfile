@@ -46,6 +46,10 @@ COPY --from=builder /app/packages/types/package.json ./packages/types/package.js
 COPY --from=builder /app/apps/frontend/.next/standalone ./frontend-standalone
 COPY --from=builder /app/apps/frontend/.next/static ./frontend-standalone/apps/frontend/.next/static
 
+# Redirect nginx logs to stdout/stderr so Zeabur can capture them
+RUN ln -sf /dev/stdout /var/log/nginx/access.log && \
+    ln -sf /dev/stderr /var/log/nginx/error.log
+
 # Nginx config: route /api to backend, everything else to frontend
 RUN printf 'server {\n\
     listen 8080;\n\
@@ -73,14 +77,19 @@ RUN printf 'server {\n\
 
 # Start script: migrate DB, then run backend + frontend + nginx
 RUN printf '#!/bin/sh\n\
-echo "Running database migrations..."\n\
-./node_modules/.bin/prisma db push --schema=/app/packages/database/prisma/schema.prisma --skip-generate --accept-data-loss 2>&1 || echo "WARNING: prisma db push failed, continuing..."\n\
-echo "Starting backend..."\n\
-node /app/apps/backend/dist/main.js &\n\
-echo "Starting frontend..."\n\
-cd /app/frontend-standalone && HOSTNAME=0.0.0.0 PORT=3000 node apps/frontend/server.js &\n\
-echo "Starting nginx on port 8080..."\n\
-nginx -g "daemon off;"\n' > /app/start.sh && chmod +x /app/start.sh
+echo "[startup] PropertyOS container starting..."\n\
+echo "[startup] Running database migrations..."\n\
+./node_modules/.bin/prisma db push --schema=/app/packages/database/prisma/schema.prisma --skip-generate --accept-data-loss 2>&1 || echo "[startup] WARNING: prisma db push failed, continuing..."\n\
+echo "[startup] Starting backend on port 3001..."\n\
+node /app/apps/backend/dist/main.js 2>&1 &\n\
+BACKEND_PID=$!\n\
+echo "[startup] Backend PID: $BACKEND_PID"\n\
+echo "[startup] Starting frontend on port 3000..."\n\
+cd /app/frontend-standalone && HOSTNAME=0.0.0.0 PORT=3000 node apps/frontend/server.js 2>&1 &\n\
+FRONTEND_PID=$!\n\
+echo "[startup] Frontend PID: $FRONTEND_PID"\n\
+echo "[startup] Starting nginx on port 8080..."\n\
+nginx -g "daemon off;" 2>&1\n' > /app/start.sh && chmod +x /app/start.sh
 
 ENV NODE_ENV=production
 EXPOSE 8080
