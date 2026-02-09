@@ -70,8 +70,10 @@ RUN printf 'server {\n\
 
 # Start script: migrate DB, then run backend + frontend + nginx
 RUN printf '#!/bin/sh\n\
+set -e\n\
 echo "Running database migrations..."\n\
-npx prisma db push --schema=/app/packages/database/prisma/schema.prisma --skip-generate\n\
+./node_modules/.bin/prisma db push --schema=/app/packages/database/prisma/schema.prisma --skip-generate 2>&1\n\
+echo "Database migration complete."\n\
 echo "Starting backend..."\n\
 node /app/apps/backend/dist/main.js &\n\
 echo "Starting frontend..."\n\
