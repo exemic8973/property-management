@@ -40,10 +40,9 @@ COPY --from=builder /app/packages/types/package.json ./packages/types/package.js
 COPY --from=builder /app/apps/frontend/.next/standalone ./frontend-standalone
 COPY --from=builder /app/apps/frontend/.next/static ./frontend-standalone/apps/frontend/.next/static
 
-# Start script that picks service based on SERVICE_TYPE env var
-COPY --from=builder /app/start.sh ./start.sh
-RUN chmod +x ./start.sh
+# Inline start script to avoid CRLF issues
+RUN printf '#!/bin/sh\nif [ "$SERVICE_TYPE" = "frontend" ]; then\n  echo "Starting frontend service..."\n  cd /app/frontend-standalone && node apps/frontend/server.js\nelse\n  echo "Starting backend service..."\n  node /app/apps/backend/dist/main.js\nfi\n' > /app/start.sh && chmod +x /app/start.sh
 
 ENV NODE_ENV=production
 EXPOSE 3000 3001
-CMD ["./start.sh"]
+CMD ["/app/start.sh"]
