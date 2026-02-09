@@ -29,8 +29,8 @@ export interface AuthResponse {
     slug: string;
     plan: string;
   };
-  token: string;
-  refresh_token: string;
+  accessToken: string;
+  refreshToken: string;
 }
 
 export interface LoginResponse {
@@ -42,8 +42,8 @@ export interface LoginResponse {
     role: UserRole;
     tenant_id: string;
   };
-  token: string;
-  refresh_token: string;
+  accessToken: string;
+  refreshToken: string;
 }
 
 @Injectable()
@@ -112,8 +112,8 @@ export class AuthService {
         slug: organization.slug,
         plan: organization.plan,
       },
-      token: tokens.access_token,
-      refresh_token: tokens.refresh_token,
+      accessToken: tokens.access_token,
+      refreshToken: tokens.refresh_token,
     };
   }
 
@@ -165,8 +165,14 @@ export class AuthService {
         role: user.role as UserRole,
         tenant_id: user.tenantId,
       },
-      token: tokens.access_token,
-      refresh_token: tokens.refresh_token,
+      organization: {
+        id: user.organization.id,
+        name: user.organization.name,
+        slug: user.organization.slug,
+        plan: user.organization.plan,
+      },
+      accessToken: tokens.access_token,
+      refreshToken: tokens.refresh_token,
     };
   }
 
