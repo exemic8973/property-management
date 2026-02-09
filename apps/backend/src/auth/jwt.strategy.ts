@@ -3,6 +3,7 @@ import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { ConfigService } from '@nestjs/config';
 import { UserRole } from './roles.decorator';
+import { getJwtKey } from './jwt-keys';
 
 export interface JwtPayload {
   sub: string;
@@ -20,7 +21,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
-      secretOrKey: configService.get<string>('JWT_PUBLIC_KEY'),
+      secretOrKey: getJwtKey(configService, 'JWT_PUBLIC_KEY'),
       algorithms: ['RS256'],
       issuer: 'propertyos.com',
       audience: 'propertyos-api',

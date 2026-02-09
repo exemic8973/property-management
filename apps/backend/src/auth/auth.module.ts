@@ -8,6 +8,7 @@ import { JwtStrategy } from './jwt.strategy';
 import { JwtAuthGuard } from './jwt-auth.guard';
 import { RolesGuard } from './roles.guard';
 import { PrismaService } from '@property-os/database';
+import { getJwtKey } from './jwt-keys';
 
 @Module({
   imports: [
@@ -15,8 +16,8 @@ import { PrismaService } from '@property-os/database';
     JwtModule.registerAsync({
       imports: [ConfigModule],
       useFactory: async (configService: ConfigService) => ({
-        privateKey: configService.get<string>('JWT_PRIVATE_KEY'),
-        publicKey: configService.get<string>('JWT_PUBLIC_KEY'),
+        privateKey: getJwtKey(configService, 'JWT_PRIVATE_KEY'),
+        publicKey: getJwtKey(configService, 'JWT_PUBLIC_KEY'),
         signOptions: {
           algorithm: 'RS256',
           expiresIn: '15m',

@@ -8,6 +8,7 @@ import { RegisterDto, LoginDto, RefreshTokenDto } from './dto';
 import { JwtPayload } from './jwt.strategy';
 import { UserRole } from './roles.decorator';
 import { randomBytes } from 'crypto';
+import { getJwtKey } from './jwt-keys';
 
 export interface Tokens {
   access_token: string;
@@ -180,7 +181,7 @@ export class AuthService {
     try {
       // Verify the refresh token
       const decoded = this.jwtService.verify<JwtPayload>(dto.refresh_token, {
-        secret: this.configService.get<string>('JWT_PUBLIC_KEY'),
+        secret: getJwtKey(this.configService, 'JWT_PUBLIC_KEY'),
         algorithms: ['RS256'],
         issuer: 'propertyos.com',
         audience: 'propertyos-api',
@@ -281,8 +282,8 @@ export class AuthService {
       jti,
     };
 
-    const privateKey = this.configService.get<string>('JWT_PRIVATE_KEY');
-    const publicKey = this.configService.get<string>('JWT_PUBLIC_KEY');
+    const privateKey = getJwtKey(this.configService, 'JWT_PRIVATE_KEY');
+    const publicKey = getJwtKey(this.configService, 'JWT_PUBLIC_KEY');
 
     if (!privateKey || !publicKey) {
       throw new Error('JWT keys are not configured');
