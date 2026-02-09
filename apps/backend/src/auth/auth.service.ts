@@ -270,13 +270,11 @@ export class AuthService {
     email: string,
     role: UserRole,
   ): Promise<Tokens> {
-    const jti = randomBytes(16).toString('hex');
     const payload = {
       sub: userId,
       tenant_id: tenantId,
       role,
       email,
-      jti,
     };
 
     const privateKey = getJwtKey(this.configService, 'JWT_PRIVATE_KEY');
@@ -292,11 +290,11 @@ export class AuthService {
       expiresIn: this.ACCESS_TOKEN_EXPIRY,
       issuer: 'propertyos.com',
       audience: 'propertyos-api',
-      jwtid: jti,
+      jwtid: randomBytes(16).toString('hex'),
     });
 
     const refresh_token = this.jwtService.sign(
-      { sub: userId, tenant_id: tenantId, type: 'refresh', jti },
+      { sub: userId, tenant_id: tenantId, type: 'refresh' },
       {
         privateKey,
         algorithm: 'RS256',
