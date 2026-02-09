@@ -20,7 +20,7 @@ RUN npx prisma generate --schema=packages/database/prisma/schema.prisma
 RUN pnpm turbo run build
 
 FROM node:20-slim AS runner
-RUN apt-get update && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y openssl nginx && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 
 # Copy everything needed for both services
@@ -40,9 +40,40 @@ COPY --from=builder /app/packages/types/package.json ./packages/types/package.js
 COPY --from=builder /app/apps/frontend/.next/standalone ./frontend-standalone
 COPY --from=builder /app/apps/frontend/.next/static ./frontend-standalone/apps/frontend/.next/static
 
-# Inline start script to avoid CRLF issues
-RUN printf '#!/bin/sh\nif [ "$SERVICE_TYPE" = "frontend" ]; then\n  echo "Starting frontend service..."\n  cd /app/frontend-standalone\n  HOSTNAME=0.0.0.0 PORT=${PORT:-3000} node apps/frontend/server.js\nelse\n  echo "Starting backend service..."\n  node /app/apps/backend/dist/main.js\nfi\n' > /app/start.sh && chmod +x /app/start.sh
+# Nginx config: route /api to backend, everything else to frontend
+RUN printf 'server {\n\
+    listen 8080;\n\
+    location /api {\n\
+        proxy_pass http://127.0.0.1:3001;\n\
+        proxy_http_version 1.1;\n\
+        proxy_set_header Upgrade $http_upgrade;\n\
+        proxy_set_header Connection "upgrade";\n\
+        proxy_set_header Host $host;\n\
+        proxy_set_header X-Real-IP $remote_addr;\n\
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;\n\
+        proxy_set_header X-Forwarded-Proto $scheme;\n\
+    }\n\
+    location / {\n\
+        proxy_pass http://127.0.0.1:3000;\n\
+        proxy_http_version 1.1;\n\
+        proxy_set_header Upgrade $http_upgrade;\n\
+        proxy_set_header Connection "upgrade";\n\
+        proxy_set_header Host $host;\n\
+        proxy_set_header X-Real-IP $remote_addr;\n\
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;\n\
+        proxy_set_header X-Forwarded-Proto $scheme;\n\
+    }\n\
+}\n' > /etc/nginx/sites-available/default
+
+# Start script: run backend + frontend + nginx
+RUN printf '#!/bin/sh\n\
+echo "Starting backend..."\n\
+node /app/apps/backend/dist/main.js &\n\
+echo "Starting frontend..."\n\
+cd /app/frontend-standalone && HOSTNAME=0.0.0.0 PORT=3000 node apps/frontend/server.js &\n\
+echo "Starting nginx on port 8080..."\n\
+nginx -g "daemon off;"\n' > /app/start.sh && chmod +x /app/start.sh
 
 ENV NODE_ENV=production
-EXPOSE 3000 3001
+EXPOSE 8080
 CMD ["/app/start.sh"]
