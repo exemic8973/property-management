@@ -61,7 +61,12 @@ export class AuthController {
     description: 'Validation error',
   })
   async register(@Body() registerDto: RegisterDto): Promise<AuthResponse> {
-    return this.authService.register(registerDto);
+    try {
+      return await this.authService.register(registerDto);
+    } catch (error) {
+      console.error('Registration failed:', error.message, error.stack);
+      throw error;
+    }
   }
 
   @Public()
