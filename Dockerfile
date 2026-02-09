@@ -17,6 +17,9 @@ RUN pnpm install --no-frozen-lockfile
 
 COPY . .
 RUN npx prisma generate --schema=packages/database/prisma/schema.prisma
+
+# Set API URL to empty so frontend calls /api on the same domain via nginx
+ENV NEXT_PUBLIC_API_URL=""
 RUN pnpm turbo run build
 
 FROM node:20-slim AS runner
