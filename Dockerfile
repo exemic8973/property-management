@@ -68,8 +68,10 @@ RUN printf 'server {\n\
     }\n\
 }\n' > /etc/nginx/sites-available/default
 
-# Start script: run backend + frontend + nginx
+# Start script: migrate DB, then run backend + frontend + nginx
 RUN printf '#!/bin/sh\n\
+echo "Running database migrations..."\n\
+npx prisma db push --schema=/app/packages/database/prisma/schema.prisma --skip-generate\n\
 echo "Starting backend..."\n\
 node /app/apps/backend/dist/main.js &\n\
 echo "Starting frontend..."\n\
