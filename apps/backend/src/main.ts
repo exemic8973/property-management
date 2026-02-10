@@ -12,12 +12,13 @@ async function bootstrap() {
   app.setGlobalPrefix('api');
 
   // Enable CORS
-  const allowedOrigins = process.env.FRONTEND_URL
-    ? process.env.FRONTEND_URL.split(',').map(url => url.trim())
-    : ['http://localhost:3000'];
-
+  // In Docker, nginx proxies same-origin requests so strict CORS isn't needed.
+  // When FRONTEND_URL is set, restrict to those origins; otherwise allow all.
+  const frontendUrl = process.env.FRONTEND_URL;
   app.enableCors({
-    origin: allowedOrigins,
+    origin: frontendUrl
+      ? frontendUrl.split(',').map(url => url.trim())
+      : true,
     credentials: true,
   });
 

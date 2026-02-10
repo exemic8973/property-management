@@ -137,9 +137,14 @@ class ApiClient {
       (response) => response,
       async (error: AxiosError) => {
         const originalRequest = error.config as any;
+        const requestUrl = originalRequest?.url || '';
 
-        // If error is 401 and we haven't tried refreshing yet
-        if (error.response?.status === 401 && !originalRequest._retry) {
+        // Skip token refresh for auth endpoints - 401 from these means bad credentials, not expired token
+        const authEndpoints = ['/api/auth/login', '/api/auth/register', '/api/auth/refresh'];
+        const isAuthEndpoint = authEndpoints.some(ep => requestUrl.includes(ep));
+
+        // If error is 401, not an auth endpoint, and we haven't tried refreshing yet
+        if (error.response?.status === 401 && !isAuthEndpoint && !originalRequest._retry) {
           if (this.isRefreshing) {
             // Wait for the refresh to complete
             return new Promise((resolve) => {
@@ -162,7 +167,7 @@ class ApiClient {
             originalRequest.headers.Authorization = `Bearer ${newTokens.accessToken}`;
             return this.client(originalRequest);
           } catch (refreshError) {
-            // Refresh failed, clear session
+            // Refresh failed, clear session and redirect
             userStorage.clearSession();
             window.location.href = '/login';
             return Promise.reject(refreshError);
