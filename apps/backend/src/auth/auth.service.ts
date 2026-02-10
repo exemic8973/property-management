@@ -124,22 +124,30 @@ export class AuthService {
   }
 
   async login(dto: LoginDto): Promise<LoginResponse> {
-    // Find user with organization - email is unique per tenant, so we need to search by email first
-    const user = await this.prisma.user.findFirst({
+    // Email is unique per tenant, so multiple users can share the same email.
+    // Find all matching users and validate password against each.
+    const users = await this.prisma.user.findMany({
       where: { email: dto.email },
       include: { organization: true },
+      orderBy: { createdAt: 'desc' },
     });
 
-    if (!user) {
+    if (users.length === 0) {
       throw new UnauthorizedException('Invalid credentials');
     }
 
-    // Validate password
-    if (!user.passwordHash) {
-      throw new UnauthorizedException('Invalid credentials');
+    // Try each user's password hash until we find a match
+    let user = null;
+    for (const candidate of users) {
+      if (!candidate.passwordHash) continue;
+      const isValid = await this.validatePassword(dto.password, candidate.passwordHash);
+      if (isValid) {
+        user = candidate;
+        break;
+      }
     }
-    const isPasswordValid = await this.validatePassword(dto.password, user.passwordHash);
-    if (!isPasswordValid) {
+
+    if (!user) {
       throw new UnauthorizedException('Invalid credentials');
     }
 
