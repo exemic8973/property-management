@@ -1,4 +1,3 @@
-# syntax=docker/dockerfile:1
 FROM node:20-slim AS base
 RUN npm install -g pnpm@10.19.0
 RUN apt-get update && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
@@ -14,20 +13,14 @@ COPY packages/types/package.json ./packages/types/
 COPY packages/ui/package.json ./packages/ui/
 COPY packages/config/package.json ./packages/config/
 
-# Cache pnpm store between builds - avoids re-downloading packages
-RUN --mount=type=cache,target=/root/.local/share/pnpm/store \
-    pnpm install --no-frozen-lockfile
+RUN pnpm install --no-frozen-lockfile
 
 COPY . .
 RUN npx prisma generate --schema=packages/database/prisma/schema.prisma
 
 # Set API URL to empty so frontend calls /api on the same domain via nginx
 ENV NEXT_PUBLIC_API_URL=""
-
-# Cache turbo and next.js build caches between builds
-RUN --mount=type=cache,target=/app/.turbo \
-    --mount=type=cache,target=/app/apps/frontend/.next/cache \
-    pnpm turbo run build
+RUN pnpm turbo run build
 
 # Remove dev dependencies to shrink node_modules significantly
 RUN CI=true pnpm prune --prod --no-optional
